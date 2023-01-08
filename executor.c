@@ -74,8 +74,10 @@ void task_kill(int task_index) {
 }
 
 void print_queue() {
+    pthread_mutex_lock(&queue_mutex);
     printf("%.*s\n", queue_guard_index - 1, queue);
     queue_guard_index = 0;
+    pthread_mutex_unlock(&queue_mutex);
 }
 
 void* run_task(void* task_struct) {
@@ -156,6 +158,7 @@ int main(void) {
         char** args = split_string(buffer);
 
         pthread_mutex_lock(&occupied_mutex);
+        executor_occupied = true;
         pthread_mutex_unlock(&occupied_mutex);
         if (strcmp(args[0], "run") == 0) {
             tasks[task_index].task_struct_index = task_index;
@@ -187,14 +190,24 @@ int main(void) {
         }
         else if (strcmp(args[0], "quit") == 0) {
             free_split_string(args);
+            pthread_mutex_lock(&occupied_mutex);
+            executor_occupied = false;
+            pthread_mutex_unlock(&occupied_mutex);
             break;
         }
         else {
             free_split_string(args);
         }
-        if (queue_guard_index != 0 && executor_occupied == false) {
+        pthread_mutex_lock(&occupied_mutex);
+        executor_occupied = false;
+        pthread_mutex_unlock(&occupied_mutex);
+
+        pthread_mutex_lock(&occupied_mutex);
+        if (queue_guard_index != 0) {
             print_queue();
         }
+        pthread_mutex_unlock(&occupied_mutex);
+        
     }
     pthread_mutex_lock(&occupied_mutex);
     executor_occupied = false;
